@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Exe 0 - Markerless AR Lab</title>
+
+  <script src="libs/aframe-v1.7.1.min.js"></script>
+
+  <style>
+    /* The HTML layer drawn on top of the camera view in AR (DOM overlay) */
+    #overlay {
+      position: fixed; inset: 0;
+      pointer-events: none;            /* empty areas let taps through to the AR scene */
+      font-family: sans-serif;
+    }
+    #info {
+      position: absolute; top: 12px; left: 12px; right: 12px;
+      padding: 8px 12px; border-radius: 8px;
+      background: rgba(0, 0, 0, 0.6); color: #fff; font-size: 14px;
+    }
+    #controls {
+      position: absolute; left: 12px; bottom: 12px;
+      display: grid; grid-template-columns: 1fr 1fr; gap: 8px;
+    }
+    #controls button {
+      pointer-events: auto;            /* buttons DO receive taps */
+      padding: 12px 16px; font-size: 16px;
+      border: none; border-radius: 8px;
+      background: #3a86ff; color: #fff;
+    }
+  </style>
+</head>
+
+<body>
+  <!-- ================= HTML OVERLAY (2D UI) ================= -->
+  <div id="overlay">
+    <div id="info">Checking AR support...</div>
+    <div id="controls">
+      <button id="btn-rotate">Rotate</button>
+      <button id="btn-reset">Reset</button>
+      <button id="btn-bigger">Bigger</button>
+      <button id="btn-smaller">Smaller</button>
+    </div>
+  </div>
+
+  <!-- ================= 3D SCENE ================= -->
+  <a-scene
+    webxr="optionalFeatures: hit-test, dom-overlay; overlayElement: #overlay;"
+    xr-mode-ui="XRMode: ar"
+    ar-hit-test="target: #model">
+
+    <!-- Desktop-preview environment: hidden automatically in AR,
+         so the real room (camera image) shows through -->
+    <a-sky color="#0d1b2a" hide-on-enter-ar></a-sky>
+    <a-plane rotation="-90 0 0" width="10" height="10" color="#1b263b" hide-on-enter-ar></a-plane>
+
+    <!-- Lights (AR objects still need light to look 3D) -->
+    <a-entity light="type: ambient; intensity: 0.7"></a-entity>
+    <a-entity light="type: directional; intensity: 0.9" position="1 4 2"></a-entity>
+
+    <!-- The object placed in the real world.
+         "model" is moved by ar-hit-test; "inner" is rotated/scaled by our buttons -->
+    <a-entity id="model" position="0 0 -1.5" hide-on-enter-ar>
+      <a-entity id="inner">
+
+        <!-- Built-in placeholder: platform + organ sphere + pointer cone -->
+        <a-cylinder position="0 0.01 0" radius="0.18" height="0.02" color="#2f3e46"></a-cylinder>
+        <a-sphere position="0 0.14 0" radius="0.12" color="#e63946"></a-sphere>
+        <a-cone position="0.18 0.14 0" rotation="0 0 -90"
+                radius-bottom="0.04" radius-top="0" height="0.12" color="#ffd166"></a-cone>
+
+        <!-- ★ REPLACE POINT (3D model): delete the three shapes above and uncomment this.
+             Also uncomment the a-assets block below.
+             AR works in REAL METRES: 1 unit = 1 m. Slicer exports are often in millimetres,
+             so try scale="0.001" first, then adjust. -->
+        <!--
+        <a-entity gltf-model="#organModel" scale="0.001 0.001 0.001"></a-entity>
+        -->
+
+      </a-entity>
+    </a-entity>
+
+    <!-- ★ REPLACE POINT (assets block for the model) -->
+    <!--
+    <a-assets timeout="30000">
+      <a-asset-item id="organModel" src="assets/models/organ.glb"></a-asset-item>
+    </a-assets>
+    -->
+
+  </a-scene>
+
+  <script>
+    const scene = document.querySelector('a-scene');
+    const info  = document.querySelector('#info');
+    const inner = document.querySelector('#inner');
+
+    // ---------- 1) Feature detection: does this browser support AR? ----------
+    if (navigator.xr) {
+      navigator.xr.isSessionSupported('immersive-ar').then((supported) => {
+        info.textContent = supported
+          ? 'AR is supported. Tap the AR button (bottom-right) to start.'
+          : 'AR is NOT supported here. You see a desktop preview only.';
+      });
+    } else {
+      info.textContent = 'WebXR is not available (needs HTTPS and a supported browser). Desktop preview only.';
+    }
+
+    // ---------- 2) Messages from the ar-hit-test component ----------
+    scene.addEventListener('ar-hit-test-start', () => {
+      info.textContent = 'Scanning: move your phone slowly over the floor or a table...';
+    });
+    scene.addEventListener('ar-hit-test-achieved', () => {
+      info.textContent = 'Surface found: tap the screen to place the object.';
+    });
+    scene.addEventListener('ar-hit-test-select', () => {
+      info.textContent = 'Placed! Use the buttons, or tap another spot to move it.';
+    });
+
+    // ---------- 3) Buttons ----------
+    function addButton(selector, handler) {
+      const button = document.querySelector(selector);
+      // Stop a button tap from also being treated as "place the object here"
+      button.addEventListener('beforexrselect', (e) => e.preventDefault());
+      button.addEventListener('click', handler);
+    }
+
+    function changeScale(factor) {
+      const newScale = inner.object3D.scale.x * factor;
+      if (newScale > 0.2 && newScale < 5) inner.object3D.scale.multiplyScalar(factor);
+    }
+
+    addButton('#btn-rotate',  () => { inner.object3D.rotation.y += AFRAME.THREE.MathUtils.degToRad(30); });
+    addButton('#btn-bigger',  () => changeScale(1.2));
+    addButton('#btn-smaller', () => changeScale(1 / 1.2));
+    addButton('#btn-reset',   () => {
+      inner.object3D.rotation.set(0, 0, 0);
+      inner.object3D.scale.set(1, 1, 1);
+    });
+  </script>
+</body>
+</html>

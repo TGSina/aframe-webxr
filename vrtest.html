@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Exe 0 - Mini VR Lab</title>
+
+  <!-- 1) A-Frame library (local file, includes Three.js) -->
+  <script src="libs/aframe-v1.7.1.min.js"></script>
+
+  <!-- 2) Our own custom components (must come AFTER A-Frame) -->
+  <script>
+    // ---------- Helper functions ----------
+    // Turn a yellowish glow on/off for every mesh inside an entity.
+    // traverse() is a Three.js method: it visits the object and all its children.
+    function setGlow(el, on) {
+      el.object3D.traverse((node) => {
+        if (node.isMesh && node.material && node.material.emissive) {
+          node.material.emissive.set(on ? 0x555500 : 0x000000);
+        }
+      });
+    }
+
+    // Update the status text in the scene
+    function setStatus(text) {
+      const status = document.querySelector('#status');
+      status.setAttribute('text', 'value', 'Selected: ' + text);
+    }
+
+    // ---------- Component 1: selectable ----------
+    // Put on any object that can be selected by clicking/gazing at it.
+    AFRAME.registerComponent('selectable', {
+      schema: { label: { type: 'string', default: 'object' } },
+
+      init: function () {
+        const el = this.el;
+        const scene = el.sceneEl;
+
+        el.addEventListener('click', () => {
+          const previous = scene.selected;       // what was selected before?
+          if (previous) setGlow(previous, false);
+
+          if (previous === el) {                 // clicked the same object again: deselect
+            scene.selected = null;
+            setStatus('none');
+            return;
+          }
+          scene.selected = el;                   // remember the new selection
+          setGlow(el, true);
+          setStatus(this.data.label);
+        });
+      }
+    });
+
+    // ---------- Component 2: control-button ----------
+    // A 3D button that transforms the currently selected object.
+    AFRAME.registerComponent('control-button', {
+      schema: { action: { type: 'string' } },
+
+      init: function () {
+        const el = this.el;
+        const scene = el.sceneEl;
+        const STEP = 0.2;       // metres per move click
+        const ANGLE = 15;       // degrees per rotate click
+        const FACTOR = 1.15;    // scale change per click
+        const degToRad = AFRAME.THREE.MathUtils.degToRad;
+
+        // Hover feedback (also works for gaze)
+        el.addEventListener('mouseenter', () => el.object3D.scale.set(1.1, 1.1, 1.1));
+        el.addEventListener('mouseleave', () => el.object3D.scale.set(1, 1, 1));
+
+        el.addEventListener('click', () => {
+          const target = scene.selected;
+          if (!target) return;                   // nothing selected
+          const o = target.object3D;
+
+          switch (this.data.action) {
+            case 'rot-left':  o.rotation.y += degToRad(ANGLE);  break;
+            case 'rot-right': o.rotation.y -= degToRad(ANGLE);  break;
+            case 'left':      o.position.x -= STEP;             break;
+            case 'right':     o.position.x += STEP;             break;
+            case 'up':        o.position.y += STEP;             break;
+            case 'down':      o.position.y -= STEP;             break;
+            case 'forward':   o.position.z -= STEP;             break;
+            case 'back':      o.position.z += STEP;             break;
+            case 'bigger':    o.scale.multiplyScalar(FACTOR);   break;
+            case 'smaller':   o.scale.multiplyScalar(1 / FACTOR); break;
+          }
+        });
+      }
+    });
+
+    // ---------- Component 3: gaze-in-vr ----------
+    // Click-only on desktop/phone, but turn on gaze (fuse) clicking
+    // as soon as we enter VR, because no mouse or touch exists there.
+    AFRAME.registerComponent('gaze-in-vr', {
+      init: function () {
+        const scene = this.el.sceneEl;
+        scene.addEventListener('enter-vr', () => this.el.setAttribute('cursor', 'fuse', true));
+        scene.addEventListener('exit-vr',  () => this.el.setAttribute('cursor', 'fuse', false));
+      }
+    });
+  </script>
+</head>
+
+<body>
+  <a-scene>
+
+    <!-- ================= ASSETS ================= -->
+    <a-assets timeout="30000">
+
+      <!-- ★ REPLACE POINT 1A (sky image): uncomment, put your file in assets/images/ -->
+      <!-- <img id="skyImg" src="assets/images/panorama.jpg"> -->
+
+      <!-- ★ REPLACE POINT 2A (3D model): uncomment, put your file in assets/models/ -->
+      <!-- <a-asset-item id="organModel" src="assets/models/organ.glb"></a-asset-item> -->
+
+    </a-assets>
+
+    <!-- ================= ENVIRONMENT ================= -->
+
+    <!-- Built-in sky: a plain colour -->
+    <a-sky color="#0d1b2a"></a-sky>
+
+    <!-- ★ REPLACE POINT 1B: delete the a-sky above and uncomment this one -->
+    <!-- <a-sky src="#skyImg" rotation="0 -90 0"></a-sky> -->
+
+    <!-- Lights -->
+    <a-entity light="type: ambient; intensity: 0.6; color: #ffffff"></a-entity>
+    <a-entity light="type: directional; intensity: 0.9; color: #ffffff" position="2 4 3"></a-entity>
+
+    <!-- Floor -->
+    <a-plane rotation="-90 0 0" width="30" height="30" color="#1b263b"></a-plane>
+
+    <!-- Table -->
+    <a-box position="0 0.8 -4" width="5.5" height="0.2" depth="2" color="#2f3e46"></a-box>
+
+    <!-- Title sign -->
+    <a-text value="Exe 0 - Mini VR Lab" position="0 2.9 -4" align="center" width="7" color="#ffffff"></a-text>
+
+    <!-- Decorative spinning shape (NOT clickable) -->
+    <a-octahedron position="0 2.3 -4" radius="0.3" color="#e0aaff"
+      animation="property: rotation; to: 0 360 0; dur: 6000; easing: linear; loop: true">
+    </a-octahedron>
+
+    <!-- ================= SELECTABLE OBJECTS ================= -->
+
+    <!-- Sphere (stands in for an organ) -->
+    <a-sphere class="clickable" selectable="label: Sphere (organ placeholder)"
+      position="-1.8 1.3 -4" radius="0.4" color="#e63946"></a-sphere>
+
+    <!-- ★ REPLACE POINT 2B: delete the sphere above and uncomment this entity.
+         Many biomedical models are huge or tiny: adjust scale (e.g. 0.01 or 10) -->
+    <!--
+    <a-entity class="clickable" selectable="label: Biomedical model"
+      gltf-model="#organModel" position="-1.8 1.3 -4" scale="1 1 1"></a-entity>
+    -->
+
+    <!-- Box -->
+    <a-box class="clickable" selectable="label: Box"
+      position="-0.6 1.2 -4" width="0.6" height="0.6" depth="0.6" color="#457b9d"></a-box>
+
+    <!-- Cylinder -->
+    <a-cylinder class="clickable" selectable="label: Cylinder"
+      position="0.6 1.3 -4" radius="0.3" height="0.8" color="#2a9d8f"></a-cylinder>
+
+    <!-- Cone -->
+    <a-cone class="clickable" selectable="label: Cone"
+      position="1.8 1.3 -4" radius-bottom="0.35" radius-top="0" height="0.8" color="#f4a261"></a-cone>
+
+    <!-- ================= CONTROL PANEL ================= -->
+    <a-entity position="0 0.7 -1.5" rotation="-35 0 0">
+
+      <!-- Status text -->
+      <a-text id="status" value="Selected: none" position="0 0.6 0"
+        align="center" width="3" color="#ffff66"></a-text>
+
+      <!-- Panel background (not clickable) -->
+      <a-box width="3" height="0.8" depth="0.02" color="#000000" opacity="0.6"></a-box>
+
+      <!-- Row 1 -->
+      <a-box class="clickable" control-button="action: rot-left" position="-1.1 0.17 0.03"
+        width="0.5" height="0.25" depth="0.05" color="#3a86ff"
+        text="value: ROT -; align: center; width: 1.5; color: white; zOffset: 0.03"></a-box>
+      <a-box class="clickable" control-button="action: rot-right" position="-0.55 0.17 0.03"
+        width="0.5" height="0.25" depth="0.05" color="#3a86ff"
+        text="value: ROT +; align: center; width: 1.5; color: white; zOffset: 0.03"></a-box>
+      <a-box class="clickable" control-button="action: left" position="0 0.17 0.03"
+        width="0.5" height="0.25" depth="0.05" color="#8338ec"
+        text="value: LEFT; align: center; width: 1.5; color: white; zOffset: 0.03"></a-box>
+      <a-box class="clickable" control-button="action: right" position="0.55 0.17 0.03"
+        width="0.5" height="0.25" depth="0.05" color="#8338ec"
+        text="value: RIGHT; align: center; width: 1.5; color: white; zOffset: 0.03"></a-box>
+      <a-box class="clickable" control-button="action: bigger" position="1.1 0.17 0.03"
+        width="0.5" height="0.25" depth="0.05" color="#06a77d"
+        text="value: BIG; align: center; width: 1.5; color: white; zOffset: 0.03"></a-box>
+
+      <!-- Row 2 -->
+      <a-box class="clickable" control-button="action: up" position="-1.1 -0.17 0.03"
+        width="0.5" height="0.25" depth="0.05" color="#fb5607"
+        text="value: UP; align: center; width: 1.5; color: white; zOffset: 0.03"></a-box>
+      <a-box class="clickable" control-button="action: down" position="-0.55 -0.17 0.03"
+        width="0.5" height="0.25" depth="0.05" color="#fb5607"
+        text="value: DOWN; align: center; width: 1.5; color: white; zOffset: 0.03"></a-box>
+      <a-box class="clickable" control-button="action: forward" position="0 -0.17 0.03"
+        width="0.5" height="0.25" depth="0.05" color="#ff006e"
+        text="value: FWD; align: center; width: 1.5; color: white; zOffset: 0.03"></a-box>
+      <a-box class="clickable" control-button="action: back" position="0.55 -0.17 0.03"
+        width="0.5" height="0.25" depth="0.05" color="#ff006e"
+        text="value: BACK; align: center; width: 1.5; color: white; zOffset: 0.03"></a-box>
+      <a-box class="clickable" control-button="action: smaller" position="1.1 -0.17 0.03"
+        width="0.5" height="0.25" depth="0.05" color="#06a77d"
+        text="value: SMALL; align: center; width: 1.5; color: white; zOffset: 0.03"></a-box>
+    </a-entity>
+
+    <!-- ================= CAMERA + CURSOR ================= -->
+    <a-camera position="0 1.6 0">
+      <a-entity
+        cursor="fuse: false; fuseTimeout: 1500"
+        raycaster="objects: .clickable; far: 20"
+        position="0 0 -1"
+        geometry="primitive: ring; radiusInner: 0.015; radiusOuter: 0.025"
+        material="color: white; shader: flat"
+        gaze-in-vr
+        animation__fusing="property: scale; startEvents: fusing; easing: easeInCubic; dur: 1500; from: 1 1 1; to: 0.1 0.1 0.1"
+        animation__leave="property: scale; startEvents: mouseleave; easing: easeInCubic; dur: 300; to: 1 1 1">
+      </a-entity>
+    </a-camera>
+
+  </a-scene>
+</body>
+</html>
