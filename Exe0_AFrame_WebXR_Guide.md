@@ -462,7 +462,7 @@ Replace `index.html` with:
 **Control panel**
 
 - A parent entity, so child buttons use positions relative to the panel (like a child GameObject in Unity). It is tilted 35° toward the user.
-- The `text` component draws each label. A-Frame fetches its default font online, so text will not show offline.
+- The local `canvas-label` component draws each label using the browser's available sans-serif font; it does not fetch a font at runtime.
 
 **Camera and cursor**
 
@@ -858,7 +858,7 @@ This also lets you see the phone's console from the laptop (click **inspect** ne
 |---|---|
 | Blank page; console says `AFRAME` is not defined | Wrong script path or file name; check `libs/aframe-v1.7.1.min.js` |
 | "Go Live" button missing | Live Server extension not installed, or no folder opened |
-| Text does not appear | The default font is loaded from the internet; check the connection |
+| A-Frame `<a-text>` does not appear | Its default font is loaded from the internet; check the connection. The labels in `vrtest.html` use local canvas text instead. |
 | Model does not appear | Wrong path, wrong scale (try 0.001 or 100), file blocked on `file://`, or case/space in file name |
 | Sky image looks wrong | Not a 2:1 equirectangular image, or adjust `rotation` on `a-sky` |
 | Clicking does nothing | Missing `class="clickable"` or the `raycaster objects` selector does not match |

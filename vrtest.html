@@ -23,8 +23,76 @@
     // Update the status text in the scene
     function setStatus(text) {
       const status = document.querySelector('#status');
-      status.setAttribute('text', 'value', 'Selected: ' + text);
+      status.setAttribute('canvas-label', 'value', 'Selected: ' + text);
     }
+
+    // Draw scene labels with the browser's local canvas fonts instead of A-Frame's remote font assets.
+    AFRAME.registerComponent('canvas-label', {
+      schema: {
+        value: { type: 'string', default: '' },
+        color: { type: 'string', default: '#ffffff' },
+        width: { type: 'number', default: 1 },
+        height: { type: 'number', default: 0.25 },
+        fontSize: { type: 'number', default: 96 },
+        zOffset: { type: 'number', default: 0 }
+      },
+
+      init: function () {
+        this.canvas = document.createElement('canvas');
+        this.context = this.canvas.getContext('2d');
+        this.texture = new AFRAME.THREE.CanvasTexture(this.canvas);
+        this.texture.colorSpace = AFRAME.THREE.SRGBColorSpace;
+        this.mesh = new AFRAME.THREE.Mesh(
+          new AFRAME.THREE.PlaneGeometry(this.data.width, this.data.height),
+          new AFRAME.THREE.MeshBasicMaterial({
+            map: this.texture,
+            transparent: true,
+            depthWrite: false,
+            side: AFRAME.THREE.DoubleSide
+          })
+        );
+        this.el.object3D.add(this.mesh);
+        this.update();
+      },
+
+      update: function () {
+        if (!this.mesh) return;
+
+        const { value, color, width, height, fontSize, zOffset } = this.data;
+        const canvasWidth = 1024;
+        const canvasHeight = Math.max(64, Math.round(canvasWidth * height / width));
+        if (this.canvas.width !== canvasWidth || this.canvas.height !== canvasHeight) {
+          this.canvas.width = canvasWidth;
+          this.canvas.height = canvasHeight;
+        }
+
+        this.mesh.geometry.dispose();
+        this.mesh.geometry = new AFRAME.THREE.PlaneGeometry(width, height);
+        this.mesh.position.z = zOffset;
+
+        const context = this.context;
+        context.clearRect(0, 0, canvasWidth, canvasHeight);
+        context.fillStyle = color;
+        context.font = `600 ${Math.min(fontSize, canvasHeight * 0.7)}px sans-serif`;
+        context.textAlign = 'center';
+        context.textBaseline = 'middle';
+        const textWidth = context.measureText(value).width;
+        const scale = Math.min(1, (canvasWidth - 32) / textWidth);
+        context.save();
+        context.translate(canvasWidth / 2, canvasHeight / 2);
+        context.scale(scale, 1);
+        context.fillText(value, 0, 0);
+        context.restore();
+        this.texture.needsUpdate = true;
+      },
+
+      remove: function () {
+        this.el.object3D.remove(this.mesh);
+        this.mesh.geometry.dispose();
+        this.mesh.material.dispose();
+        this.texture.dispose();
+      }
+    });
 
     // ---------- Component 1: selectable ----------
     // Put on any object that can be selected by clicking/gazing at it.
@@ -135,7 +203,8 @@
     <a-box position="0 0.8 -4" width="5.5" height="0.2" depth="2" color="#2f3e46"></a-box>
 
     <!-- Title sign -->
-    <a-text value="Exe 0 - Mini VR Lab" position="0 2.9 -4" align="center" width="7" color="#ffffff"></a-text>
+    <a-entity canvas-label="value: Exe 0 - Mini VR Lab; width: 5; height: 0.55; fontSize: 128"
+      position="0 2.9 -4"></a-entity>
 
     <!-- Decorative spinning shape (NOT clickable) -->
     <a-octahedron position="0 2.3 -4" radius="0.3" color="#e0aaff"
@@ -171,8 +240,8 @@
     <a-entity position="0 0.7 -1.5" rotation="-35 0 0">
 
       <!-- Status text -->
-      <a-text id="status" value="Selected: none" position="0 0.6 0"
-        align="center" width="3" color="#ffff66"></a-text>
+      <a-entity id="status" canvas-label="value: Selected: none; width: 2.8; height: 0.35; fontSize: 110; color: #ffff66"
+        position="0 0.6 0"></a-entity>
 
       <!-- Panel background (not clickable) -->
       <a-box width="3" height="0.8" depth="0.02" color="#000000" opacity="0.6"></a-box>
@@ -180,36 +249,36 @@
       <!-- Row 1 -->
       <a-box class="clickable" control-button="action: rot-left" position="-1.1 0.17 0.03"
         width="0.5" height="0.25" depth="0.05" color="#3a86ff"
-        text="value: ROT -; align: center; width: 1.5; color: white; zOffset: 0.03"></a-box>
+        canvas-label="value: ROT -; width: 0.46; height: 0.21; fontSize: 100; zOffset: 0.027"></a-box>
       <a-box class="clickable" control-button="action: rot-right" position="-0.55 0.17 0.03"
         width="0.5" height="0.25" depth="0.05" color="#3a86ff"
-        text="value: ROT +; align: center; width: 1.5; color: white; zOffset: 0.03"></a-box>
+        canvas-label="value: ROT +; width: 0.46; height: 0.21; fontSize: 100; zOffset: 0.027"></a-box>
       <a-box class="clickable" control-button="action: left" position="0 0.17 0.03"
         width="0.5" height="0.25" depth="0.05" color="#8338ec"
-        text="value: LEFT; align: center; width: 1.5; color: white; zOffset: 0.03"></a-box>
+        canvas-label="value: LEFT; width: 0.46; height: 0.21; fontSize: 100; zOffset: 0.027"></a-box>
       <a-box class="clickable" control-button="action: right" position="0.55 0.17 0.03"
         width="0.5" height="0.25" depth="0.05" color="#8338ec"
-        text="value: RIGHT; align: center; width: 1.5; color: white; zOffset: 0.03"></a-box>
+        canvas-label="value: RIGHT; width: 0.46; height: 0.21; fontSize: 100; zOffset: 0.027"></a-box>
       <a-box class="clickable" control-button="action: bigger" position="1.1 0.17 0.03"
         width="0.5" height="0.25" depth="0.05" color="#06a77d"
-        text="value: BIG; align: center; width: 1.5; color: white; zOffset: 0.03"></a-box>
+        canvas-label="value: BIG; width: 0.46; height: 0.21; fontSize: 100; zOffset: 0.027"></a-box>
 
       <!-- Row 2 -->
       <a-box class="clickable" control-button="action: up" position="-1.1 -0.17 0.03"
         width="0.5" height="0.25" depth="0.05" color="#fb5607"
-        text="value: UP; align: center; width: 1.5; color: white; zOffset: 0.03"></a-box>
+        canvas-label="value: UP; width: 0.46; height: 0.21; fontSize: 100; zOffset: 0.027"></a-box>
       <a-box class="clickable" control-button="action: down" position="-0.55 -0.17 0.03"
         width="0.5" height="0.25" depth="0.05" color="#fb5607"
-        text="value: DOWN; align: center; width: 1.5; color: white; zOffset: 0.03"></a-box>
+        canvas-label="value: DOWN; width: 0.46; height: 0.21; fontSize: 100; zOffset: 0.027"></a-box>
       <a-box class="clickable" control-button="action: forward" position="0 -0.17 0.03"
         width="0.5" height="0.25" depth="0.05" color="#ff006e"
-        text="value: FWD; align: center; width: 1.5; color: white; zOffset: 0.03"></a-box>
+        canvas-label="value: FWD; width: 0.46; height: 0.21; fontSize: 100; zOffset: 0.027"></a-box>
       <a-box class="clickable" control-button="action: back" position="0.55 -0.17 0.03"
         width="0.5" height="0.25" depth="0.05" color="#ff006e"
-        text="value: BACK; align: center; width: 1.5; color: white; zOffset: 0.03"></a-box>
+        canvas-label="value: BACK; width: 0.46; height: 0.21; fontSize: 100; zOffset: 0.027"></a-box>
       <a-box class="clickable" control-button="action: smaller" position="1.1 -0.17 0.03"
         width="0.5" height="0.25" depth="0.05" color="#06a77d"
-        text="value: SMALL; align: center; width: 1.5; color: white; zOffset: 0.03"></a-box>
+        canvas-label="value: SMALL; width: 0.46; height: 0.21; fontSize: 100; zOffset: 0.027"></a-box>
     </a-entity>
 
     <!-- ================= CAMERA + CURSOR ================= -->
